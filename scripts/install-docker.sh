@@ -15,13 +15,13 @@
 #   升级：  sudo bash install-docker.sh --upgrade
 #   卸载：  sudo bash install-docker.sh --uninstall
 #
-# 项目地址: https://github.com/0xdabiaoge/incudal
+# 项目地址: https://github.com/binidc/incudal
 # ============================================================================
 set -euo pipefail
 
 # ========================== 全局常量 ==========================
 readonly SCRIPT_VERSION="1.0.0"
-readonly GITHUB_REPO="0xdabiaoge/incudal"
+readonly GITHUB_REPO="binidc/incudal"
 readonly DOCKER_IMAGE="ghcr.io/${GITHUB_REPO}"
 readonly INSTALL_DIR="/opt/incudal"
 readonly ENV_FILE="${INSTALL_DIR}/.env"
@@ -313,7 +313,7 @@ generate_compose() {
     cat > "$COMPOSE_FILE" << 'COMPOSEFILE'
 services:
   app:
-    image: ghcr.io/0xdabiaoge/incudal:latest
+    image: ghcr.io/binidc/incudal:latest
     ports:
       - "${APP_PORT:-3000}:3000"
     environment:
