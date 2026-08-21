@@ -45,7 +45,7 @@ readonly AGENT_BIN_PATH="${INCUDAL_AGENT_BIN:-/usr/local/bin/incudal-agent}"
 
 # ZFS 预编译模块下载地址（GitHub Release）
 # 格式: ${ZFS_PREBUILT_URL}/zfs-modules-<内核版本>.tar.gz
-readonly ZFS_PREBUILT_URL="https://github.com/0xdabiaoge/Incudal-Debian-ZFS/releases/download/Debian-ZFS"
+readonly ZFS_PREBUILT_URL="https://github.com/binidc/Incudal-Debian-ZFS/releases/download/Debian-ZFS"
 
 # ========================== 颜色定义 ==========================
 readonly RED='\033[1;31m'
@@ -1737,7 +1737,7 @@ show_result() {
 #!/bin/bash
 # Incudal 节点管理快捷入口 - 自动下载最新版本
 SCRIPT_CACHE="/root/incudal.sh"
-SCRIPT_URL="https://raw.githubusercontent.com/0xdabiaoge/incudal/main/server/templates/install.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/binidc/incudal/main/server/templates/install.sh"
 echo "正在获取最新的节点管理脚本..."
 if curl -sSfL "$SCRIPT_URL" -o "$SCRIPT_CACHE" 2>/dev/null; then
     chmod +x "$SCRIPT_CACHE"
@@ -1775,7 +1775,7 @@ SHORTCUT
 # ========================== RFW 防火墙 ==========================
 
 # RFW 下载地址
-readonly RFW_RELEASE_URL="https://github.com/0xdabiaoge/incudal-rfw/releases/latest/download"
+readonly RFW_RELEASE_URL="https://github.com/binidc/incudal-rfw/releases/latest/download"
 readonly RFW_INSTALL_DIR="/root/rfw"
 readonly RFW_SERVICE_FILE="/etc/systemd/system/rfw.service"
 
