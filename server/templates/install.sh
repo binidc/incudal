@@ -1168,28 +1168,23 @@ install_deps() {
 
     # Debian DKMS 编译后清理：删除编译工具链以释放资源
     if [[ "$debian_zfs_compiled" == "true" ]]; then
-        info "ZFS DKMS 编译成功，清理编译环境以释放资源..."
+        info "ZFS DKMS 编译成功，正在固化环境配置..."
 
-        # 锁定当前内核版本，防止自动更新时 DKMS 在无编译环境下重编译失败
+        # 锁定当前内核版本，防止无人值守升级导致内核变化
         local kernel_pkg
         kernel_pkg=$(dpkg -l | awk '/^ii.*linux-image-[0-9]/ {print $2}' | head -n1 || true)
         if [[ -n "$kernel_pkg" ]]; then
             apt-mark hold "$kernel_pkg" >/dev/null 2>&1 || true
-            info "已锁定内核版本: ${kernel_pkg}（防止自动更新导致 ZFS 失效）"
+            info "已锁定内核版本: ${kernel_pkg}（防止无人值守升级）"
         fi
 
-        # 卸载编译工具链（gcc、g++、make 等，约 200-500MB）
-        apt-get purge -y -qq build-essential cpp gcc g++ make dpkg-dev >/dev/null 2>&1 || true
-        # 卸载内核头文件（约 100-200MB）
-        apt-get purge -y -qq "linux-headers-$(uname -r)" linux-headers-* >/dev/null 2>&1 || true
-        # 自动清理不再需要的依赖
-        apt-get autoremove -y -qq >/dev/null 2>&1 || true
-        # 清理 APT 下载缓存
+        # 【核心修改点】：彻底移除原脚本中的 apt-get purge 和 autoremove 逻辑
+        # 保留 dkms、gcc、make 和 linux-headers，确保系统后续具备动态内核模块构建能力
+        
+        # 仅清理下载的 deb 包安装缓存以释放部分物理空间
         apt-get clean 2>/dev/null || true
 
-        log "编译环境已清理，磁盘空间已释放"
-        warn "注意：内核版本已锁定，如需更新内核请先重装编译依赖"
-        info "更新内核前请运行: apt install build-essential linux-headers-\$(uname -r)"
+        log "编译环境固化完成，编译链已保留以支持重启和开机自愈 ✓"
     fi
 }
 
@@ -1295,14 +1290,22 @@ install_zfs_dkms() {
     
     # 优先安装通用编译核心工具，防止一处失败导致全部跳过
     apt-get install -y -qq build-essential dkms >/dev/null 2>&1 || true
-
+    
+    # 针对云内核 (-cloud-amd64) 引入特殊的头文件拉取逻辑
+    if [[ "$(uname -r)" == *"cloud"* ]]; then
+        info "检测到云内核环境，正在拉取云内核专用元头文件 linux-headers-cloud-amd64..."
+        apt-get install -y -qq linux-headers-cloud-amd64 >/dev/null 2>&1 || true
+    fi
+    
     # 尝试安装精确版本内核源码头
-    if ! apt-get install -y -qq "linux-headers-$(uname -r)" >/dev/null 2>&1; then
-        warn "未找到精确的内核头文件 linux-headers-$(uname -r)"
-        info "正尝试拉取架构级通用头文件（linux-headers-amd64）..."
-        apt-get install -y -qq linux-headers-amd64 >/dev/null 2>&1 || {
-            warn "内核头文件均安装失败，ZFS DKMS 编译极可能无法正常进行"
-        }
+    if ! dpkg -l | grep -q "linux-headers-$(uname -r)" && ! dpkg -l | grep -q "linux-headers-cloud"; then
+        if ! apt-get install -y -qq "linux-headers-$(uname -r)" >/dev/null 2>&1; then
+            warn "未找到精确的内核头文件 linux-headers-$(uname -r)"
+            info "正尝试拉取架构级通用头文件（linux-headers-amd64）..."
+            apt-get install -y -qq linux-headers-amd64 >/dev/null 2>&1 || {
+                warn "内核头文件均安装失败，ZFS DKMS 编译极可能无法正常进行"
+            }
+        fi
     fi
 
     info "开始 DKMS 编译 ZFS 模块（CPU 将跑满，请耐心等待）..."
@@ -1315,6 +1318,17 @@ install_zfs_dkms() {
         # 验证 ZFS 模块
         if modprobe zfs 2>/dev/null; then
             log "ZFS DKMS 编译成功（模块已加载）"
+            # 强制将 zfs 写入开机内核模块加载列表，防止重启丢失
+            if ! grep -q "^zfs$" /etc/modules 2>/dev/null; then
+                echo "zfs" >> /etc/modules
+                info "已将 zfs 模块写入 /etc/modules 确保开机自动加载"
+            fi
+            
+            # 刷入 initramfs 引导镜像，固化 ZFS 引导
+            if command -v update-initramfs &>/dev/null; then
+                info "正在将 ZFS 模块刷入引导镜像 (initramfs)..."
+                update-initramfs -u -k "$(uname -r)" >/dev/null 2>&1 || true
+            fi
         else
             warn "ZFS 工具已安装但内核模块加载失败（DKMS 编译可能不完整）"
             info "面板仍可使用 dir/btrfs 存储池，ZFS 可稍后手动修复"
