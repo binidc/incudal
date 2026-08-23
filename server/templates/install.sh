@@ -45,7 +45,7 @@ readonly AGENT_BIN_PATH="${INCUDAL_AGENT_BIN:-/usr/local/bin/incudal-agent}"
 
 # ZFS 预编译模块下载地址（GitHub Release）
 # 格式: ${ZFS_PREBUILT_URL}/zfs-modules-<内核版本>.tar.gz
-readonly ZFS_PREBUILT_URL="https://github.com/binidc/Incudal-Debian-ZFS/releases/download/Debian-ZFS"
+readonly ZFS_PREBUILT_URL="https://github.com/0xdabiaoge/Incudal-Debian-ZFS/releases/download/Debian-ZFS"
 
 # ========================== 颜色定义 ==========================
 readonly RED='\033[1;31m'
@@ -1789,7 +1789,7 @@ SHORTCUT
 # ========================== RFW 防火墙 ==========================
 
 # RFW 下载地址
-readonly RFW_RELEASE_URL="https://github.com/binidc/incudal-rfw/releases/latest/download"
+readonly RFW_RELEASE_URL="https://github.com/0xdabiaoge/incudal-rfw/releases/latest/download"
 readonly RFW_INSTALL_DIR="/root/rfw"
 readonly RFW_SERVICE_FILE="/etc/systemd/system/rfw.service"
 
