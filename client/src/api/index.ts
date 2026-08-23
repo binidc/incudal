@@ -421,7 +421,8 @@ async function proactiveRefreshToken(): Promise<string | null> {
       credentials: 'include', // 重要：发送 Cookie（包含 refreshToken）
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      body: '{}'
     })
 
     if (!refreshResponse.ok) {
@@ -607,7 +608,8 @@ http.interceptors.response.use(
           credentials: 'include', // 重要：发送 Cookie（包含 refreshToken）
           headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          body: '{}'
         })
 
         if (!refreshResponse.ok) {
