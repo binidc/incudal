@@ -195,23 +195,28 @@ manifest_value() {
   local platform="$2"
   local key="$3"
 
-  awk -v platform="\"${platform}\"" -v key="\"${key}\"" '
-    # 1. 匹配到目标平台行（如 "linux-amd64": {），将标志位设为 1，并跳过当前行
-    $0 ~ platform { in_platform=1; next }
-    
-    # 2. 如果处于目标平台块内，且遇到了右花括号，说明该平台块结束了，将标志位复位（不要用 exit 导致进程提前自杀）
-    in_platform && $0 ~ /^[[:space:]]*}/ { in_platform=0; next }
-    
-    # 3. 只有当处于目标平台块内部（in_platform==1）且匹配到目标键名（如 "name" 或 "sha256"）时，才提取并打印值
-    in_platform && $0 ~ key {
-      line=$0
-      sub(/^[^:]*:[[:space:]]*/, "", line)  # 去除冒号及左侧的键名与空格
-      sub(/[,\r\n]*$/, "", line)            # 去除行尾的逗号、回车或换行符
-      gsub(/^"|"$/, "", line)               # 去除值两端的双引号
-      print line
-      exit                                  # 已经成功拿到当前需要的值，此时可以安全退出
-    }
-  ' "${manifest_path}"
+  # 检测系统是用 python3 还是 python
+  local py_cmd
+  if command -v python3 >/dev/null 2>&1; then
+    py_cmd="python3"
+  elif command -v python >/dev/null 2>&1; then
+    py_cmd="python"
+  else
+    return 1
+  fi
+
+  # 调用 Python 单行脚本，支持兼容 files 嵌套层级
+  $py_cmd -c "
+import json, sys
+try:
+    with open('${manifest_path}') as f:
+        data = json.load(f)
+    # 兼容有 files 层级和无 files 层级的结构
+    files = data.get('files', data)
+    print(files.get('${platform}', {}).get('${key}', ''))
+except Exception:
+    pass
+" 2>/dev/null
 }
 
 
