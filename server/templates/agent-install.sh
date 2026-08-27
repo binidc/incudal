@@ -195,35 +195,21 @@ manifest_value() {
   local platform="$2"
   local key="$3"
 
-  # 1. 优先尝试使用系统自带的标准 jq 工具
-  if command -v jq >/dev/null 2>&1; then
-    jq -r ".files[\"${platform}\"][\"${key}\"]" "${manifest_path}" 2>/dev/null | grep -v '^null$' || true
-    return 0
-  fi
-
-  # 2. 如果没有 jq，使用修正了语法错误的 awk 状态机
   awk -v platform="\"${platform}\"" -v key="\"${key}\"" '
-    # 匹配到平台块（如 "linux-amd64": {），标记进入该平台
+    # 1. 匹配到目标平台行（例如 "linux-amd64": {），将标志位设为 1，并跳过当前行
     $0 ~ platform { in_platform=1; next }
     
-    # 每一行都执行此逻辑块
-    {
-      if (in_platform) {
-        # 如果遇到了下一个同级的大括号闭合，或者到了另一个平台块的开头，则退出
-        if ($0 ~ /^[[:space:]]*}/ || ($0 ~ /:/ && $0 !~ key && $0 !~ /"name"|"sha256"|"size"|"gzip"/)) {
-          exit
-        }
-        
-        # 匹配平台块内部的目标属性（如 "name": "..."）
-        if ($0 ~ key) {
-          line=$0
-          sub(/^[^:]*:[[:space:]]*/, "", line) # 去掉冒号及左边的内容
-          sub(/[,\r\n]*$/, "", line)            # 去掉末尾的逗号和换行
-          gsub(/^"|"$/, "", line)              # 去掉首尾的双引号
-          print line
-          exit
-        }
-      }
+    # 2. 如果标志位为 1 且遇到了花括号闭合行，说明该平台块结束了，将标志位复位为 0（不要用 exit 导致全盘终止）
+    in_platform && $0 ~ /^[[:space:]]*}/ { in_platform=0; next }
+    
+    # 3. 只有当处于该平台块内部（in_platform==1）且匹配到目标键名（如 "name" 或 "sha256"）时，才提取并打印值
+    in_platform && $0 ~ key {
+      line=$0
+      sub(/^[^:]*:[[:space:]]*/, "", line)  # 去除冒号及左侧的键名与空格
+      sub(/[,\r\n]*$/, "", line)            # 去除行尾的逗号、回车或换行符
+      gsub(/^"|"$/, "", line)               # 去除值两端的双引号
+      print line
+      exit                                  # 已经拿到了我们需要的值，此时可以安全退出
     }
   ' "${manifest_path}"
 }
