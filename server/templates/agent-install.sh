@@ -191,25 +191,7 @@ download_manifest() {
 }
 
 manifest_value() {
-  local manifest_path="$1"
-  local platform="$2"
-  local key="$3"
-
-  awk -v platform="\"${platform}\"" -v key="\"${key}\"" '
-    # 匹配平台行，允许前后有空格或嵌套括号
-    $0 ~ platform { in_platform=1; next }
-    # 如果进入了平台块，且遇到了右括号（结束块），则退出
-    in_platform && $0 ~ /^[[:space:]]*}/ { in_platform=0; next }
-    # 在平台块内部匹配具体的 key (如 name 或 sha256)
-    in_platform && $0 ~ key {
-      line=$0
-      sub(/^[^:]*:[[:space:]]*/, "", line)
-      sub(/[,\r]*$/, "", line)
-      gsub(/^"|"$/, "", line)
-      print line
-      exit
-    }
-  ' "${manifest_path}"
+return 0
 }
 
 
