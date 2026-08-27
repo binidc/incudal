@@ -195,36 +195,38 @@ manifest_value() {
   local platform="$2"
   local key="$3"
 
-  # 1. 优先尝试使用系统自带的标准 jq 工具（如果安装了的话）
+  # 1. 优先尝试使用系统自带的标准 jq 工具
   if command -v jq >/dev/null 2>&1; then
     jq -r ".files[\"${platform}\"][\"${key}\"]" "${manifest_path}" 2>/dev/null | grep -v '^null$' || true
     return 0
   fi
 
-  # 2. 如果没有 jq，使用健壮的 awk 状态机解析带嵌套的 JSON
+  # 2. 如果没有 jq，使用修正了语法错误的 awk 状态机
   awk -v platform="\"${platform}\"" -v key="\"${key}\"" '
     # 匹配到平台块（如 "linux-amd64": {），标记进入该平台
     $0 ~ platform { in_platform=1; next }
     
-    if (in_platform) {
-      # 如果遇到了下一个同级的大括号闭合，或者到了另一个平台块的开头，则退出
-      if ($0 ~ /^[[:space:]]*}/ || ($0 ~ /:/ && $0 !~ key && $0 !~ /"name"|"sha256"|"size"|"gzip"/)) {
-        exit
-      }
-      
-      # 匹配平台块内部的目标属性（如 "name": "..."）
-      if ($0 ~ key) {
-        line=$0
-        sub(/^[^:]*:[[:space:]]*/, "", line) # 去掉冒号及左边的内容
-        sub(/[,\r\n]*$/, "", line)            # 去掉末尾的逗号和换行
-        gsub(/^"|"$/, "", line)              # 去掉首尾的双引号
-        print line
-        exit
+    # 每一行都执行此逻辑块
+    {
+      if (in_platform) {
+        # 如果遇到了下一个同级的大括号闭合，或者到了另一个平台块的开头，则退出
+        if ($0 ~ /^[[:space:]]*}/ || ($0 ~ /:/ && $0 !~ key && $0 !~ /"name"|"sha256"|"size"|"gzip"/)) {
+          exit
+        }
+        
+        # 匹配平台块内部的目标属性（如 "name": "..."）
+        if ($0 ~ key) {
+          line=$0
+          sub(/^[^:]*:[[:space:]]*/, "", line) # 去掉冒号及左边的内容
+          sub(/[,\r\n]*$/, "", line)            # 去掉末尾的逗号和换行
+          gsub(/^"|"$/, "", line)              # 去掉首尾的双引号
+          print line
+          exit
+        }
       }
     }
   ' "${manifest_path}"
 }
-
 
 validate_binary_name() {
   local name="$1"
