@@ -196,23 +196,24 @@ manifest_value() {
   local key="$3"
 
   awk -v platform="\"${platform}\"" -v key="\"${key}\"" '
-    # 1. 匹配到目标平台行（例如 "linux-amd64": {），将标志位设为 1，并跳过当前行
+    # 1. 匹配到目标平台行（如 "linux-amd64": {），将标志位设为 1，并跳过当前行
     $0 ~ platform { in_platform=1; next }
     
-    # 2. 如果标志位为 1 且遇到了花括号闭合行，说明该平台块结束了，将标志位复位为 0（不要用 exit 导致全盘终止）
+    # 2. 如果处于目标平台块内，且遇到了右花括号，说明该平台块结束了，将标志位复位（不要用 exit 导致进程提前自杀）
     in_platform && $0 ~ /^[[:space:]]*}/ { in_platform=0; next }
     
-    # 3. 只有当处于该平台块内部（in_platform==1）且匹配到目标键名（如 "name" 或 "sha256"）时，才提取并打印值
+    # 3. 只有当处于目标平台块内部（in_platform==1）且匹配到目标键名（如 "name" 或 "sha256"）时，才提取并打印值
     in_platform && $0 ~ key {
       line=$0
       sub(/^[^:]*:[[:space:]]*/, "", line)  # 去除冒号及左侧的键名与空格
       sub(/[,\r\n]*$/, "", line)            # 去除行尾的逗号、回车或换行符
       gsub(/^"|"$/, "", line)               # 去除值两端的双引号
       print line
-      exit                                  # 已经拿到了我们需要的值，此时可以安全退出
+      exit                                  # 已经成功拿到当前需要的值，此时可以安全退出
     }
   ' "${manifest_path}"
 }
+
 
 validate_binary_name() {
   local name="$1"
