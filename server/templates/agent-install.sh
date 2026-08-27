@@ -195,28 +195,23 @@ manifest_value() {
   local platform="$2"
   local key="$3"
 
-  # 检测系统是用 python3 还是 python
-  local py_cmd
-  if command -v python3 >/dev/null 2>&1; then
-    py_cmd="python3"
-  elif command -v python >/dev/null 2>&1; then
-    py_cmd="python"
-  else
-    return 1
-  fi
-
-  # 调用 Python 单行脚本，支持兼容 files 嵌套层级
-  $py_cmd -c "
-import json, sys
-try:
-    with open('${manifest_path}') as f:
-        data = json.load(f)
-    # 兼容有 files 层级和无 files 层级的结构
-    files = data.get('files', data)
-    print(files.get('${platform}', {}).get('${key}', ''))
-except Exception:
-    pass
-" 2>/dev/null
+  awk -v platform="\"${platform}\"" -v key="\"${key}\"" '
+    # 1. 匹配到目标平台块（如 "linux-amd64": {），开始进入读取状态
+    $0 ~ platform { in_platform=1; next }
+    
+    # 2. 如果遇到右花括号 }，说明当前平台块结束了，重置状态（千万不能用 exit 终止全盘）
+    in_platform && $0 ~ /^[[:space:]]*}/ { in_platform=0; next }
+    
+    # 3. 在目标平台块内部，精准匹配 key
+    in_platform && $0 ~ key {
+      line=$0
+      sub(/^[^:]*:[[:space:]]*/, "", line)  # 去掉冒号及左侧内容
+      sub(/[,\r\n]*$/, "", line)            # 去掉行尾逗号和换行
+      gsub(/^"|"$/, "", line)               # 去掉前后的双引号
+      print line
+      exit                                  # 成功拿到当前字段的值，安全退出
+    }
+  ' "${manifest_path}"
 }
 
 
